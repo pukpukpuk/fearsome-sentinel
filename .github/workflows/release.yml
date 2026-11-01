@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches mod_version
+        run: |
+          MOD_VERSION=$(grep '^mod_version=' gradle.properties | cut -d= -f2 | tr -d '\r')
+          if [ "${GITHUB_REF_NAME#v}" != "$MOD_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match mod_version=$MOD_VERSION"
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+
+      - name: Build
+        run: |
+          gradle build
+          rm -f build/libs/*-sources.jar
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: build/libs/*.jar
